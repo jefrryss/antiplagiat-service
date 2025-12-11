@@ -90,7 +90,7 @@ func (h *FileHandler) GetFilesList(c *gin.Context) {
 // @Failure 400 {object} map[string]string "error: objectName не указан"
 // @Failure 404 {object} map[string]string "error: работа или файл не найдены"
 // @Failure 500 {object} map[string]string "error: не удалось отправить файл"
-// @Router /files/download/{objectName} [get]
+// @Router /files/download/{work_id} [get]
 func (h *FileHandler) DownloadFile(c *gin.Context) {
 	workID := c.Param("objectName")
 	if workID == "" {
