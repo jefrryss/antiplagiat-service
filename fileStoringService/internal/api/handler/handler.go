@@ -98,7 +98,6 @@ func (h *FileHandler) DownloadFile(c *gin.Context) {
 		return
 	}
 
-	// Получаем работу и поток файла
 	work, file, err := h.manager.GetWorkWithFile(c.Request.Context(), workID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -106,22 +105,19 @@ func (h *FileHandler) DownloadFile(c *gin.Context) {
 	}
 	defer file.Close()
 
-	// Определяем имя файла и MIME
 	fileName := work.File.FileName
 	if fileName == "" {
-		fileName = work.File.ID.String() // fallback
+		fileName = work.File.ID.String()
 	}
 	contentType := work.File.ContentType
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
 
-	// Заголовки для скачивания
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	c.Header("Content-Type", contentType)
 	c.Status(http.StatusOK)
 
-	// Отправка файла
 	if _, err := io.Copy(c.Writer, file); err != nil {
 		c.Error(fmt.Errorf("не удалось отправить файл: %w", err))
 		return

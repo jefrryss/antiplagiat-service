@@ -77,7 +77,6 @@ func (m *ManagerFileStorage) GetWorksInfoByType(ctx context.Context, typeWork st
 	return works, nil
 }
 
-// Возвращает работу и поток файла из MinIO
 func (m *ManagerFileStorage) GetWorkWithFile(ctx context.Context, workID string) (entities.Work, io.ReadCloser, error) {
 	work, err := m.repo.GetWork(ctx, workID)
 	if err != nil {
