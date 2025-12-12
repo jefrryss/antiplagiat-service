@@ -25,7 +25,7 @@ func NewMinioStorage(endpoint, accessKey, secretKey, bucket string) repository.S
 		Secure: false,
 	})
 	if err != nil {
-		log.Fatalf("Не удалось подключиться к MinIO: %v", err)
+		log.Fatalf("Не удалось подключиться к MinIO %v", err)
 	}
 
 	return &MinioStorage{
@@ -46,12 +46,12 @@ func (m *MinioStorage) SaveFile(id string, data io.Reader, size int64) error {
 
 	exists, err := m.Client.BucketExists(ctx, m.bucket)
 	if err != nil {
-		return fmt.Errorf("ошибка проверки существования бакета: %w", err)
+		return fmt.Errorf("ошибка проверки существования бакета %w", err)
 	}
 
 	if !exists {
 		if err := m.Client.MakeBucket(ctx, m.bucket, minio.MakeBucketOptions{}); err != nil {
-			return fmt.Errorf("не удалось создать бакет %s: %w", m.bucket, err)
+			return fmt.Errorf("не удалось создать бакет %s %w", m.bucket, err)
 		}
 	}
 
@@ -69,12 +69,12 @@ func (m *MinioStorage) GetFile(objectName string) (io.ReadCloser, error) {
 
 	obj, err := m.Client.GetObject(context.Background(), m.bucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("не удалось получить файл из MinIO: %w", err)
+		return nil, fmt.Errorf("не удалось получить файл из MinIO %w", err)
 	}
 
 	_, err = obj.Stat()
 	if err != nil {
-		return nil, fmt.Errorf("файл не найден в MinIO: %w", err)
+		return nil, fmt.Errorf("файл не найден в MinIO %w", err)
 	}
 
 	return obj, nil
@@ -89,7 +89,7 @@ func (m *MinioStorage) DeleteFile(objectName string) error {
 	defer cancel()
 
 	if err := m.Client.RemoveObject(ctx, m.bucket, objectName, minio.RemoveObjectOptions{}); err != nil {
-		return fmt.Errorf("не удалось удалить файл из MinIO: %w", err)
+		return fmt.Errorf("не удалось удалить файл из MinIO %w", err)
 	}
 
 	return nil

@@ -23,7 +23,7 @@ func NewPostgresDB(PostgresDBUrl string) repository.Repo {
 
 	pool, err := pgxpool.New(context.Background(), PostgresDBUrl)
 	if err != nil {
-		log.Fatalf("не получилось подключиться к DB: %v", err)
+		log.Fatalf("не получилось подключиться к DB %v", err)
 	}
 
 	return &PostgresDB{Pool: pool}
@@ -38,7 +38,7 @@ func (p *PostgresDB) CreateFile(ctx context.Context, file entities.File) error {
 		"INSERT INTO files (id, file_name, content_type) VALUES ($1, $2, $3)",
 		file.ID, file.FileName, file.ContentType)
 	if err != nil {
-		return fmt.Errorf("ошибка при создании файла: %w", err)
+		return fmt.Errorf("ошибка при создании файла %w", err)
 	}
 	return nil
 }
@@ -52,7 +52,7 @@ func (p *PostgresDB) CreateWork(ctx context.Context, work entities.Work) error {
 		"INSERT INTO works (id, user_name, created_at, type_work, file_id) VALUES ($1, $2, $3, $4, $5)",
 		work.ID, work.UserName, work.CreatedAt, work.TypeWork, work.File.ID)
 	if err != nil {
-		return fmt.Errorf("ошибка при создании работы: %w", err)
+		return fmt.Errorf("ошибка при создании работы %w", err)
 	}
 	return nil
 }
@@ -70,7 +70,7 @@ func (p *PostgresDB) GetWork(ctx context.Context, id string) (entities.Work, err
 		Scan(&w.ID, &w.UserName, &w.CreatedAt, &w.TypeWork,
 			&f.ID, &f.FileName, &f.ContentType)
 	if err != nil {
-		return entities.Work{}, fmt.Errorf("ошибка при получении работы: %w", err)
+		return entities.Work{}, fmt.Errorf("ошибка при получении работы %w", err)
 	}
 
 	w.File = f
@@ -85,7 +85,7 @@ func (p *PostgresDB) GetWorksByType(ctx context.Context, typeWork string) ([]ent
 		   JOIN files f ON w.file_id = f.id
 		  WHERE w.type_work=$1`, typeWork)
 	if err != nil {
-		return nil, fmt.Errorf("ошибка при получении работ по типу: %w", err)
+		return nil, fmt.Errorf("ошибка при получении работ по типу %w", err)
 	}
 	defer rows.Close()
 
@@ -95,14 +95,14 @@ func (p *PostgresDB) GetWorksByType(ctx context.Context, typeWork string) ([]ent
 		var f entities.File
 		if err := rows.Scan(&w.ID, &w.UserName, &w.CreatedAt, &w.TypeWork,
 			&f.ID, &f.FileName, &f.ContentType); err != nil {
-			return nil, fmt.Errorf("ошибка при сканировании строки: %w", err)
+			return nil, fmt.Errorf("ошибка при сканировании строки %w", err)
 		}
 		w.File = f
 		works = append(works, w)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("ошибка при итерации по строкам: %w", err)
+		return nil, fmt.Errorf("ошибка при итерации по строкам %w", err)
 	}
 
 	return works, nil

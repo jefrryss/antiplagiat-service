@@ -14,6 +14,7 @@
 Сервис является частью более широкой архитектуры, включающей:
 
 ## Архитектура
+```
 fileStoringService/
 ├─ docs/ - нужен для swagger
 ├─ cmd/
@@ -30,6 +31,7 @@ fileStoringService/
 ├─ Dockerfile # Сборка Docker-образа сервиса
 ├─ go.mod / go.sum # Модули Go
 └─ README.md # Документация проекта
+```
 ### Слои архитектуры
 
 1. **Domain**
@@ -77,26 +79,83 @@ fileStoringService/
 
 - Каждый компонент (PostgreSQL, MinIO, File Storing Service) запускается в отдельном контейнере.
 - Взаимодействие между контейнерами настроено через Docker Compose.
-- Все сервисы можно запустить командой:
+- Сервис можно запустить командой:
 
 ```bash
 docker compose up --build
-## Архитектура проекта
+```
+Проверить работу микро сервиса можно с помощью swagger 
+Нужно запустить проект и перейти по ссылке http://localhost:8080/swagger/index.html#/
+```bash
+docker compose up --build
+```
+# API File Storing Service
 
-Проект построен по принципам **чистой архитектуры** с разделением ответственности по слоям:
+## UploadFile
 
-```mermaid
-flowchart LR
-    Client["Клиент (студент / преподаватель)"] -->|HTTP REST| API["FileHandler (API)"]
-    API --> Manager["ManagerFileStorage (Application / бизнес-логика)"]
-    Manager --> RepoDB["PostgresDB (Repository)"]
-    Manager --> S3Storage["MinIO (S3-совместимое хранилище)"]
-    
-    RepoDB -->|CRUD| DB["PostgreSQL"]
-    S3Storage -->|Put/Get/Delete| FileStorage["Файлы в MinIO"]
+**Endpoint:** `POST /upload`  
+**Описание:** Загружает файл через менеджер, сохраняет его в MinIO и сохраняет метаданные работы в БД.
 
-    style Client fill:#f9f,stroke:#333,stroke-width:2px
-    style API fill:#bbf,stroke:#333,stroke-width:2px
-    style Manager fill:#bfb,stroke:#333,stroke-width:2px
-    style RepoDB fill:#ffb,stroke:#333,stroke-width:2px
-    style S3Storage fill:#fbb,stroke:#333,stroke-width:2px
+**Параметры (form-data):**
+
+- `userName` (string, обязательный) — имя пользователя, загружающего файл
+- `typeWork` (string, обязательный) — категория или тип работы
+- `file` (file, обязательный) — сам файл
+
+**Ответы:**
+
+```json
+{
+  "work_id": "UUID загруженной работы"
+}
+```
+
+##  GetFilesList
+
+**Endpoint:** `GET /files/list/{typeWork}`  
+**Описание:** Возвращает список всех работ для указанного типа работы, включая информацию о файле и данные работы.
+
+**Параметры (path):**
+
+- `typeWork` (string, обязательный) — тип работы
+
+**Ответы:**
+```json
+{
+ "createdAt": "string",
+ "file": {
+    "contentType": "string",
+    "fileName": "string",
+    "id": "string"
+},
+ "id": "string",
+ "typeWork": "string",
+ "userName": "string"
+}
+```
+
+
+## DownloadFile
+
+**Endpoint:** `GET /files/download/{work_id}`  
+**Описание:** Отправляет файл из MinIO по UUID работы (work_id).
+
+**Параметры (path):**
+
+- `work_id` (string, обязательный) — UUID работы
+
+**Ответы:**
+
+файл с оригинальным именем и MIME-типом
+
+### Обработка ошибок при падении микросервиса
+
+В случае недоступности одного из зависимых сервисов (например, PostgreSQL или MinIO) микросервис не падает полностью, а корректно обрабатывает ошибку. Ошибки фиксируются на уровне менеджера и репозитория, передаются в HTTP-хендлер, который возвращает клиенту соответствующий код:
+
+- 400 Bad Request — некорректные параметры запроса.
+
+- 404 Not Found — работа или файл не найдены.
+
+- 500 Internal Server Error — ошибка при обращении к БД или хранилищу файлов (MinIO).
+
+Таким образом, клиент получает информативный ответ, а сервис остаётся доступным, что обеспечивает отказоустойчивость системы.
