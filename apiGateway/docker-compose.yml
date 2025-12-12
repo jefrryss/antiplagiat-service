@@ -1,0 +1,121 @@
+version: "3.9"
+
+networks:
+  mynetwork:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data_filestorage:
+  minio_data_analytics:
+  reports_data:
+
+services:
+  postgres-filestorage:
+    image: postgres:16-alpine
+    container_name: postgres-filestorage
+    environment:
+      POSTGRES_USER: filestorage
+      POSTGRES_PASSWORD: filestorage
+      POSTGRES_DB: filestorage
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../fileStoringService/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - mynetwork
+
+  
+  minio-filestorage:
+    image: minio/minio:latest
+    container_name: minio-filestorage
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000" 
+      - "9001:9001"
+    volumes:
+      - minio_data_filestorage:/data
+    networks:
+      - mynetwork
+
+ 
+  file-storage-service:
+    build:
+      context: ../fileStoringService
+      dockerfile: dockerfile
+    container_name: file-storage-service
+    environment:
+      DATABASE_URL: postgres://filestorage:filestorage@postgres-filestorage:5432/filestorage?sslmode=disable
+      S3_ENDPOINT: minio-filestorage:9000   
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio123
+      S3_BUCKET: files
+      SERVER_PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-filestorage
+      - minio-filestorage
+    networks:
+      - mynetwork
+    restart: always
+
+ 
+  minio-analytics:
+    image: minio/minio:latest
+    container_name: minio-analytics
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    command: server /data --console-address ":9001"
+    ports:
+      - "9002:9000"  
+      - "9003:9001" 
+    volumes:
+      - minio_data_analytics:/data
+    networks:
+      - mynetwork
+
+
+  file-analysis-service:
+    build:
+      context: ../fileAnalisysService
+      dockerfile: dockerfile
+    container_name: file-analysis-service
+    environment:
+      FILE_STORAGE_URL: http://file-storage-service:8080
+      S3_ENDPOINT: minio-analytics:9000   
+      S3_ACCESS_KEY: minio
+      S3_SECRET_KEY: minio123
+      S3_BUCKET: reports
+      SERVER_PORT: 8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      - file-storage-service
+      - minio-analytics
+    networks:
+      - mynetwork
+    restart: always
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: api-gateway
+    environment:
+      FILE_STORAGE_URL: http://file-storage-service:8080
+      ANALYSIS_SERVICE_URL: http://file-analysis-service:8081
+      SERVER_PORT: 8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      - file-storage-service
+      - file-analysis-service
+    networks:
+      - mynetwork
+    restart: always
