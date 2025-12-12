@@ -79,11 +79,17 @@ fileStoringService/
 
 - Каждый компонент (PostgreSQL, MinIO, File Storing Service) запускается в отдельном контейнере.
 - Взаимодействие между контейнерами настроено через Docker Compose.
-- Сервис можно запустить командой:
+- Чтобы запустить сервис и протестить его через swagger. Сначала нужно очистить контейнеры
+```bash
+docker stop $(docker ps -aq)
+docker rm $(docker ps -aq)
+```
+- Теперь сервис можно запустить командой:
 
 ```bash
 docker compose up --build
 ```
+
 Проверить работу микро сервиса можно с помощью swagger 
 Нужно запустить проект и перейти по ссылке http://localhost:8080/swagger/index.html#/
 ```bash
