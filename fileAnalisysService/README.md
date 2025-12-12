@@ -101,7 +101,7 @@ http://localhost:8081/swagger/index.html
 ## API Эндпоинты
 
 ### Создать новый отчёт  
-`GET /works/{typeWork}/reports`
+`POST /works/{typeWork}/reports`
 
 ```json
 {
