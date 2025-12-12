@@ -14,29 +14,6 @@
 
 ---
 
-## Архитектура
-
-
-- **API Gateway** управляет всеми запросами клиентов:
-  - `/files/upload` → отправка файлов на File Storing Service.
-  - `/works/:typeWork/reports/` → получение отчетов через File Analysis Service.
-  - Генерирует Word Cloud через QuickChart API на основе содержимого загруженных файлов.
-
-- **File Storing Service**:
-  - Сохраняет файлы в MinIO и метаданные в PostgreSQL.
-  - Возвращает `work_id` для дальнейшей обработки.
-
-- **File Analysis Service**:
-  - Создает отчеты по файлам.
-  - Сохраняет результаты анализа в MinIO Analytics.
-  - Может возвращать последний отчет по типу работы.
-
-- **WordCloudManager** (API Gateway):
-  - Генерирует ссылку на облако слов через QuickChart API.
-  - Используется при загрузке файла и создании отчета.
-
----
-
 ## Менеджеры в API Gateway
 
 API Gateway использует несколько менеджеров для работы с микросервисами и генерации данных. Каждый менеджер отвечает за конкретную задачу и инкапсулирует логику взаимодействия с внешними сервисами.
@@ -111,6 +88,8 @@ cloudURL := wordCloudManager.GenerateWordCloud(fileText)
 
 ```go
 cloudURL, err := plagiarismService.UploadFileAndGetWordCloud(userName, typeWork, fileName, fileData)
+```
+```
 [Client] 
    │
    ▼
@@ -123,7 +102,79 @@ cloudURL, err := plagiarismService.UploadFileAndGetWordCloud(userName, typeWork,
    └─> WordCloudManager → QuickChart API → URL облака слов
 ```
 
+## i. Краткое описание архитектуры системы
 
+Проект состоит из следующих микросервисов:
+
+1. **File Storing Service** – отвечает за хранение исходных файлов.  
+   - Использует PostgreSQL для метаданных.  
+   - Использует MinIO для хранения файлов.  
+   - Порт: `8080`.
+
+2. **File Analysis Service** – создает отчеты на основе загруженных файлов.  
+   - Получает файлы из File Storing Service.  
+   - Сохраняет отчеты в MinIO Analytics.  
+   - Порт: `8081`.
+
+3. **API Gateway** – объединяет все сервисы, предоставляет единый API клиентам.  
+   - Инкапсулирует работу менеджеров (`FileManager`, `ReportManager`, `WordCloudManager`, `PlagiarismService`).  
+   - Генерирует облака слов через QuickChart API.  
+   - Порт: `8082`.
+
+4. **PostgreSQL** – хранение метаданных о файлах и отчетах.  
+   - Порт: `5432`.
+
+5. **MinIO Filestorage** – хранение исходных файлов.  
+   - Порты: API `9000`, Web Console `9001`.
+
+6. **MinIO Analytics** – хранение отчетов.  
+   - Порты: API `9002`, Web Console `9003`.
+
+Все микросервисы объединены в Docker-сеть `mynetwork` через Docker Compose.  
+Каждый сервис имеет **свой README** и встроенную документацию Swagger.
+
+---
+
+## ii. Пользовательские и технические сценарии микросервисов
+
+### Сценарий 1: Загрузка файла и создание отчета
+
+1. **Пользователь** отправляет файл на API Gateway (`POST /files/upload`).  
+2. **API Gateway**:
+   - Использует `FileManager` для загрузки файла в File Storing Service.
+   - Получает `work_id`.
+   - С помощью `ReportManager` создаёт отчет через File Analysis Service.
+   - С помощью `WordCloudManager` генерирует ссылку на облако слов.
+3. **File Storing Service**:
+   - Сохраняет файл в MinIO Filestorage.
+   - Записывает метаданные в PostgreSQL.
+4. **File Analysis Service**:
+   - Обрабатывает файл и создает отчет.
+   - Сохраняет отчет в MinIO Analytics.
+5. **API Gateway** возвращает клиенту:
+   - `work_id`
+   - Ссылку на облако слов.
+### Сценарий 2: Получение последнего отчета
+
+1. **Пользователь** отправляет запрос на API Gateway (`GET /works/:typeWork/reports/last`).  
+2. **API Gateway**:
+   - Использует `ReportManager` для запроса последнего отчета в File Analysis Service.
+3. **File Analysis Service** возвращает отчет или ошибку, если отчёт не найден.
+4. **API Gateway** обрабатывает ошибки и возвращает клиенту:
+   - Отчет
+   - Или информативное сообщение об ошибке (например, `"report not found"`).
+
+---
+
+### Обработка ошибок при отказе микросервисов
+
+- Если **File Storing Service** недоступен: клиент получает `"file service unavailable"`.
+- Если **File Analysis Service** недоступен: клиент получает `"analysis service unavailable"`.
+- Если **QuickChart API** недоступен: клиент получает `"failed to generate word cloud"`.
+- Все ошибки логируются, а клиент получает информативные сообщения.
+- Система продолжает работу с доступными компонентами.
+
+---
 ## Docker и Docker Compose
 
 Для удобного запуска всей системы используется Docker и Docker Compose. Все микросервисы запускаются в отдельных контейнерах и объединяются в одну сеть `mynetwork`.
@@ -164,9 +215,9 @@ cloudURL, err := plagiarismService.UploadFileAndGetWordCloud(userName, typeWork,
 
 Каждый микросервис использует Swagger для документации API.  
 
-- **API Gateway** – [http://localhost:8082/swagger/index.html](http://localhost:8082/swagger/index.html)  
-- **File Storing Service** – [http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)  
-- **File Analysis Service** – [http://localhost:8081/swagger/index.html](http://localhost:8081/swagger/index.html)  
+- **API Gateway** – [http://localhost:8082/swagger/index.html#/](http://localhost:8082/swagger/index.html#/)  
+- **File Storing Service** – [http://localhost:8080/swagger/index.html#/](http://localhost:8080/swagger/index.html#/)  
+- **File Analysis Service** – [http://localhost:8081/swagger/index.html#/](http://localhost:8081/swagger/index.html#/)  
 
 Swagger позволяет тестировать эндпоинты и просматривать структуры запросов и ответов.
 
@@ -179,4 +230,4 @@ cd apiGateway
 docker-compose up --build
 ```
 
-###  У каждого микросервиса есть свйо readme
+###  У каждого микросервиса есть свой README.md
